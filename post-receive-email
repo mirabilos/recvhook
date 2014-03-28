@@ -4,6 +4,11 @@
 #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
 # Copyright © 2011, 2012, 2013, 2014
 #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
+# Part of FusionForge.
+#
+# This script can only be used in EvolvisForge configured git
+# repositories for a (forge) project. It accesses the forge
+# configuration and uses Evolvis-specific data files.
 #
 # Copyright (c) 2007 Andy Parkins
 #
@@ -58,22 +63,25 @@
 # Config
 # ------
 # hooks.mailinglist
-#   This is the list that all pushes will go to; leave it blank to not send
-#   emails for every ref update.
+#   This is the list that all pushes will go to; leave it blank to send
+#   all eMails to the forge commits list.
 # hooks.announcelist
 #   This is the list that all pushes of annotated tags will go to.  Leave it
 #   blank to default to the mailinglist field.  The announce emails lists
 #   the short log summary of the changes since the last annotated tag.
 # hooks.replyto
 #   If set, replies are requested to be directed to this eMail address.
+#   This defaults to the forge discuss list.
 # hooks.envelopesender
 #   If set then the -f option is passed to sendmail to allow the envelope
 #   sender address to be set.  This is also used as Header From.
+#   This defaults to your user eMail address at the Forge.
 # hooks.emailprefix
 #   If set, e.g. to '[SCM] ', all eMails have their subjects prefixed
 #   with this string to aid filtering.
 # hooks.shortdesc
-#   If set, this is used in the Subject instead of the description file.
+#   If set, this is used in the Subject to prefix messages instead of
+#   the Forge subrepository name in curly braces.
 # hooks.showrev
 #   The shell command used to format each revision in the email, with
 #   "%s" replaced with the commit id.  Defaults to "git rev-list -1
@@ -118,6 +126,44 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=en_US.UTF-8 \
     LC_IDENTIFICATION=C LC_MEASUREMENT=C LC_MESSAGES=C \
     LC_MONETARY=C LC_NAME=C LC_NUMERIC=C LC_PAPER=C \
     LC_TELEPHONE=C LC_TIME=C
+
+# ---------------------------- Forge Integration
+
+# get configuration values
+keys=domain_name:lists_host:sys_name
+while IFS= read -r line; do
+	[[ $line != *' '* || $line = '#'* ]] && continue
+	key=${line%% *}
+	value=${line#* }
+	[[ :$keys: = *:$key:* ]] || continue
+	eval $key=\$value
+done </etc/gforge/shell.inc
+
+# find out where we are
+whereami() {
+	echo >&2 "Where am I? GIT_DIR is not set, or this is not"
+	echo >&2 "an Evolvis gforge-plugin-scmgit repository!"
+	exit 1
+}
+[[ -n $GIT_DIR ]] || whereami
+GIT_DIR=$(realpath "$GIT_DIR")
+[[ -n $GIT_DIR ]] || whereami
+parentdir=$GIT_DIR
+max_recursion=64
+while [[ $parentdir != / ]]; do
+	(( --max_recursion )) || whereami
+	parentdir=$(realpath "$parentdir/..")
+	[[ -s $parentdir/ffgroup.nfo ]] && break
+done
+[[ -s $parentdir/ffgroup.nfo ]] || whereami
+[[ ${parentdir##*/} = "$(<$parentdir/ffgroup.nfo)" ]] || whereami
+reponame=${GIT_DIR#"$parentdir/"}
+
+ff_group=${parentdir##*/}
+ff_subrepo=${reponame%.git}
+ff_sender=$(id -un)@${domain_name}
+ff_target=${ff_group}-commits@$lists_host
+ff_replyto=${ff_group}-discuss@$lists_host
 
 # ---------------------------- Functions
 
@@ -315,6 +361,7 @@ generate_email_footer()
 	hooks/post-receive
 	--${SPACE}
 	$projectdesc
+	($sys_name project $ff_group repository $ff_subrepo)
 	EOF
 }
 
@@ -787,8 +834,10 @@ then
 fi
 
 recipients=$(git config hooks.mailinglist)
+: ${recipients:=$ff_target}
 announcerecipients=$(git config hooks.announcelist)
 envelopesender=$(git config hooks.envelopesender)
+: ${envelopesender:=$ff_sender}
 emailprefix=$(git config hooks.emailprefix)
 custom_showrev=$(git config hooks.showrev)
 maxlines=$(git config hooks.emailmaxlines)
@@ -796,8 +845,9 @@ diffopts=$(git config hooks.diffopts)
 : ${diffopts:="-p --stat --summary --find-copies-harder"}
 kgbconffile=$(git config hooks.kgbconffile)
 replyto=$(git config hooks.replyto)
+: ${replyto:=$ff_replyto}
 shortdesc=$(git config hooks.shortdesc)
-: ${shortdesc:=$projectdesc}
+[[ -n $shortdesc ]] || shortdesc='{'$ff_subrepo'}'
 
 # --- Main loop
 # Allow dual mode: run from the command line just like the update hook, or
