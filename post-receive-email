@@ -851,10 +851,10 @@ then
 fi
 
 recipients=$(git config hooks.mailinglist)
-: ${recipients:=$ff_target}
+: "${recipients:=$ff_target}"
 announcerecipients=$(git config hooks.announcelist)
 envelopesender=$(git config hooks.envelopesender)
-: ${envelopesender:=$ff_sender}
+: "${envelopesender:=$ff_sender}"
 emailprefix=$(git config hooks.emailprefix)
 custom_showrev=$(git config hooks.showrev)
 maxlines=$(git config hooks.emailmaxlines)
@@ -862,7 +862,7 @@ diffopts=$(git config hooks.diffopts)
 : "${diffopts:="-p --stat --summary --find-copies-harder"}"
 kgbconffile=$(git config hooks.kgbconffile)
 replyto=$(git config hooks.replyto)
-: ${replyto:=$ff_replyto}
+: "${replyto:=$ff_replyto}"
 shortdesc=$(git config hooks.shortdesc)
 [[ -n $shortdesc ]] || shortdesc='{'$ff_subrepo'}'
 
