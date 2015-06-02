@@ -338,11 +338,10 @@ generate_email_header()
 	[[ -n $replyto ]] && routing_headers="$routing_headers${nl}Reply-To: $replyto"
 
 	subj="Subject: ${emailprefix}$shortdesc $refname_type $short_refname ${change_type}d. $describe"
-
-	# Note: the Perl call is known to occasionally insert extra whitespace
-	# cf. https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=787513
-	subj=$(print -nr -- "$subj" | \
-	    perl -C7 -0777 -Mutf8 -MEncode -e "print encode('MIME-Q', <>);")
+	subj=$(print -nr -- "$subj" | php -r '
+	    mb_internal_encoding("UTF-8");
+	    echo mb_encode_mimeheader(file_get_contents("php://stdin"),
+	    "UTF-8", "Q", "\012");')
 
 	if [[ -z $subj ]]; then
 		print -u2 "E: Subject empty, RFC2047 MIME encoding failed"
