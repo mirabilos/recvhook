@@ -282,12 +282,26 @@ generate_email()
 
 generate_email_header()
 {
+	local routing_headers subj
+
 	# --- Email (all stdout will be the email)
 	# Generate header
 
 	routing_headers="To: $recipients"
 	[[ -n $envelopesender ]] && routing_headers="From: $envelopesender${nl}$routing_headers"
 	[[ -n $replyto ]] && routing_headers="$routing_headers${nl}Reply-To: $replyto"
+
+	subj="Subject: ${emailprefix}$shortdesc $refname_type $short_refname ${change_type}d. $describe"
+
+	# Note: the Perl call is known to occasionally insert extra whitespace
+	# cf. https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=787513
+	subj=$(print -nr -- "$subj" | \
+	    perl -C7 -0777 -Mutf8 -MEncode -e "print encode('MIME-Q', <>);")
+
+	if [[ -z $subj ]]; then
+		print -u2 "E: Subject empty, RFC2047 MIME encoding failed"
+		exit 1
+	fi
 
 	cat <<-EOF
 	MIME-Version: 1.0
@@ -298,7 +312,7 @@ generate_email_header()
 	X-Git-Reftype: $refname_type
 	X-Git-Oldrev: $oldrev
 	X-Git-Newrev: $newrev
-	$(perl -Mutf8 -MEncode -e "print encode('MIME-Q', 'Subject: ${emailprefix}$shortdesc $refname_type $short_refname ${change_type}d. $describe');")
+	$subj
 	Auto-Submitted: auto-generated
 
 	This is an automated email from the git hooks/post-receive script. It was
@@ -796,11 +810,11 @@ emailprefix=$(git config hooks.emailprefix)
 custom_showrev=$(git config hooks.showrev)
 maxlines=$(git config hooks.emailmaxlines)
 diffopts=$(git config hooks.diffopts)
-: ${diffopts:="-p --stat --summary --find-copies-harder"}
+: "${diffopts:="-p --stat --summary --find-copies-harder"}"
 kgbconffile=$(git config hooks.kgbconffile)
 replyto=$(git config hooks.replyto)
 shortdesc=$(git config hooks.shortdesc)
-: ${shortdesc:=$projectdesc}
+: "${shortdesc:=$projectdesc}"
 
 # --- Main loop
 # Allow dual mode: run from the command line just like the update hook, or
