@@ -64,7 +64,9 @@ There are notable new settings:
 
 There’s also noticeable effort to fix umlauts and
 other nōn-ASCII characters in eMails – as long as
-you use UTF-8 in your commits, of course.
+you use UTF-8 in your commits, of course. To have
+them show up correctly in all (local) operations,
+run “git config core.quotePath false”.
 
 For more information, please read the script directly.
 If there will ever be frequently asked questions, I’ll
