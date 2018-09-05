@@ -2,7 +2,7 @@
 #
 # Copyright © 2013
 #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
-# Copyright © 2011, 2012, 2013, 2014, 2015
+# Copyright © 2011, 2012, 2013, 2014, 2015, 2018
 #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 # Copyright © 2016
 #	martin f krafft (madduck), Thorsten Glaser (mirabilos)
@@ -15,12 +15,12 @@
 #
 # An example hook script to mail out commit update information.
 #
-# NOTE: This script is no longer under active development.  There
-# is another script, git-multimail, which is more capable and
-# configurable and is largely backwards-compatible with this script;
-# please see "contrib/hooks/multimail/".  For instructions on how to
-# migrate from post-receive-email to git-multimail, please see
-# "README.migrate-from-post-receive-email" in that directory.
+# This script is not under active development by the git team, with
+# git-multimail being suggested as replacement. It has downsides,
+# of course; this script is maintained as a fork, by mirabilos, for
+# 100% compatibility with the old version, plus bugfixes (encoding)
+# and new features (more and better diffs shown; cURL triggers and
+# “KGB” bot support, etc.) and optional FusionForge integration.
 #
 # This hook sends emails listing new revisions to the repository
 # introduced by the change being reported.  The rule is that (for
@@ -43,6 +43,7 @@
 #
 # This hook script needs the “en_US.UTF-8” locale set up on the server.
 # The MirBSD Korn Shell (mksh) must be installed as /bin/mksh and usable.
+# Perl or PHP with the Multibyte extension are required as well.
 #
 # This hook script assumes it is enabled on the central repository of a
 # project, with all users pushing only to it and not between each other.  It
@@ -284,7 +285,7 @@ generate_email()
 
 generate_email_header()
 {
-	local routing_headers subj
+	local routing_headers subj senc failc=0
 
 	# --- Email (all stdout will be the email)
 	# Generate header
@@ -295,14 +296,36 @@ generate_email_header()
 
 	subj="Subject: ${emailprefix}$shortdesc $refname_type $short_refname ${change_type}d. $describe"
 
-	# Note: the Perl call is known to occasionally insert extra whitespace
-	# cf. https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=787513
-	subj=$(print -nr -- "$subj" | \
-	    perl -C7 -0777 -Mutf8 -MEncode -e "print encode('MIME-Q', <>);")
+	# Try to encode. Strongly prefer PHP over Perl and Python, sadly;
+	# evidence provided in Debian bugs #787511, #787512, #787513,
+	# #819155, #879204, #879205, #881955, #907891 though.
+	senc=$(print -nr -- "$subj" | php -r '
+		mb_internal_encoding("UTF-8");
+		echo mb_encode_mimeheader(file_get_contents("php://stdin"),
+		    "UTF-8", "Q", "\012");
+	    ' 2>/dev/null) || { (( failc |= 1 )); senc=; }
+	[[ $senc = Subject:?("$nl")' '* ]] || { (( failc |= 2 )); senc=; }
+	[[ -n $senc ]] || senc=$(print -nr -- "$subj" | perl \
+	    -C7 -0777 -Mutf8 -MEncode -e "
+		print encode('MIME-Q', <>);
+	    " 2>/dev/null) || { (( failc |= 4 )); senc=; }
+	[[ $senc = Subject:?("$nl")' '* ]] || { (( failc |= 8 )); senc=; }
 
-	if [[ -z $subj ]]; then
+	if [[ -z $senc ]]; then
 		print -u2 "E: Subject empty, RFC2047 MIME encoding failed"
-		exit 1
+		if ! whence -p php >/dev/null 2>&1; then
+			: show only the Perl-related error messages below
+		elif (( failc & 1 )); then
+			print -u2 "N: PHP encoding failed, perhaps install php-mbstring."
+		elif (( failc & 2 )); then
+			print -u2 "N: PHP encoding produced bad output, WTF‽"
+		fi
+		if (( failc & 4 )); then
+			print -u2 "N: Perl encoding failed, WTF‽ Also, install PHP."
+		elif (( failc & 8 )); then
+			print -u2 "N: Perl encoding produced bad output, install PHP!"
+		fi
+		senc="Subject: post-receive-email: no Subject, RFC2047 MIME encoding failed"
 	fi
 
 	cat <<-EOF
@@ -314,7 +337,7 @@ generate_email_header()
 	X-Git-Reftype: $refname_type
 	X-Git-Oldrev: $oldrev
 	X-Git-Newrev: $newrev
-	$subj
+	$senc
 	Auto-Submitted: auto-generated
 
 	This is an automated email from the git hooks/post-receive script. It was
@@ -348,9 +371,30 @@ generate_create_branch_email()
 	echo "        at  $newrev ($newrev_type)"
 	echo ""
 
+	local newrevs=$(show_new_revisions)
+
+	if [[ -z $newrevs ]]; then
+		echo "No new revisions were added by this update."
+		return 0
+	fi
+
+	echo "Below, we list all revisions that are new to this repository and"
+	echo "have not appeared on any other notification email. The diff below"
+	echo "represents the summarised changes from the first known parent:"
+
+	echo ""
 	echo $LOGBEGIN
-	show_new_revisions
+	print -r -- "$newrevs"
 	echo $LOGEND
+	# experimental summarised changes diff
+	echo ""
+	echo "Summary of changes:"
+	git rev-parse --not "${other_branches[@]}" | \
+	    git rev-list --parents --topo-order --reverse --stdin $newrev | \
+	    head -n 1 |&
+	read -p commit parent otherparents
+	git -c core.quotePath=false diff-tree $diffopts \
+	    "${parent:-$(:|git hash-object -t tree --stdin)}" "$newrev"
 }
 
 #
@@ -501,20 +545,18 @@ generate_update_branch_email()
 		fi
 	fi
 
+	local newrevs=
+	[[ -n $rewind_only ]] || newrevs=$(show_new_revisions)
+
 	echo ""
-	if [ -z "$rewind_only" ]; then
+	if [[ -n $newrevs ]]; then
 		echo "Those revisions listed above that are new to this repository have"
 		echo "not appeared on any other notification email; so we list those"
 		echo "revisions in full, below."
 
 		echo ""
 		echo $LOGBEGIN
-		show_new_revisions
-
-		# XXX: Need a way of detecting whether git rev-list actually
-		# outputted anything, so that we can issue a "no new
-		# revisions added by this update" message
-
+		print -r -- "$newrevs"
 		echo $LOGEND
 	else
 		echo "No new revisions were added by this update."
@@ -723,6 +765,8 @@ show_new_revisions()
 	# (see generate_update_branch_email for the explanation of this
 	# command)
 
+	local revspec onerev
+
 	# Revision range passed to rev-list differs for new vs. updated
 	# branches.
 	if [ "$change_type" = create ]
@@ -734,9 +778,7 @@ show_new_revisions()
 		revspec=$oldrev..$newrev
 	fi
 
-	other_branches=$(git for-each-ref --format='%(refname)' refs/heads/ |
-	    grep -F -v $refname)
-	git rev-parse --not $other_branches |
+	git rev-parse --not "${other_branches[@]}" |
 	if [ -z "$custom_showrev" ]
 	then
 		git rev-list --pretty --stdin $revspec
@@ -827,15 +869,40 @@ if [ -n "$1" -a -n "$2" -a -n "$3" ]; then
 	# themselves
 	prep_for_email $2 $3 $1 && PAGER= generate_email
 else
-	ilines=
-	while read oldrev newrev refname
-	do
-		ilines="$ilines$oldrev $newrev $refname$nl"
+	# get a list of all branches
+	set -A other_branches -- $(git for-each-ref \
+	    --format='%(refname)' refs/heads/)
+	set -A ilines
+	while IFS= read -r line; do
+		# store for later
+		ilines+=("$line")
+		# check if refname is a branch name
+		refname=${line##* }
+		[[ $refname = refs/heads/* ]] || continue
+		# filter out from other_branches if matching
+		i=-1 j=${#other_branches[@]}
+		while (( ++i < j )); do
+			[[ ${other_branches[i]} = "$refname" ]] || continue
+			unset other_branches[i]
+			break
+		done
+		set -A other_branches -- "${other_branches[@]}"
+	done
+	# process one by one for eMails
+	for line in "${ilines[@]}"; do
+		oldrev=${line%% *}
+		newrev=${line#* }
+		newrev=${newrev%% *}
+		refname=${line##* }
 		prep_for_email $oldrev $newrev $refname || continue
 		generate_email $maxlines | send_mail
+		# append to list of branches for which eMails have been sent
+		[[ $refname = refs/heads/* ]] && other_branches+=("$refname")
 	done
 	if [[ -n $kgbconffile && -s $kgbconffile ]]; then
-		print -nr -- "$ilines" | kgb-client \
+		for line in "${ilines[@]}"; do
+			print -r -- "$line"
+		done | kgb-client \
 		    --conf "$kgbconffile" --repository git --git-reflog -
 	fi
 	set -o noglob
