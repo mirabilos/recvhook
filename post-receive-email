@@ -2,7 +2,7 @@
 #
 # Copyright © 2013
 #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
-# Copyright © 2011, 2012, 2013, 2014, 2015, 2018
+# Copyright © 2011, 2012, 2013, 2014, 2015, 2018, 2019
 #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 # Copyright © 2016
 #	martin f krafft (madduck), Thorsten Glaser (mirabilos)
@@ -41,9 +41,10 @@
 #  ln -sf /etc/gforge/plugins/scmgit/post-receive-email.sh hooks/post-receive
 #  # but that can only be used for a Forge-controlled repository
 #
-# This hook script needs the “en_US.UTF-8” locale set up on the server.
-# The MirBSD Korn Shell (mksh) must be installed as /bin/mksh and usable.
-# Perl or PHP with the Multibyte extension are required as well.
+# This hook script needs the “C.UTF-8” locale set up (or change below).
+# Other requirementa are: The MirBSD Korn Shell (mksh) as /bin/mksh;
+# PHP with the mbstring extension (preferred) or Perl 5; curl, if you
+# wish to use the curltrigger functionality.
 #
 # This hook script assumes it is enabled on the central repository of a
 # project, with all users pushing only to it and not between each other.  It
@@ -62,16 +63,17 @@
 # ------
 # hooks.mailinglist
 #   This is the list that all pushes will go to; leave it blank to not send
-#   emails for every ref update.
+#   emails for every ref update. This fills the To header, so use comma for
+#   multiple recipients (but please only use addresses, not full names).
 # hooks.announcelist
-#   This is the list that all pushes of annotated tags will go to.  Leave it
-#   blank to default to the mailinglist field.  The announce emails lists
+#   This is the list(s) that all pushes of annotated tags will go to. Leave
+#   it blank to default to the mailinglist field. The announce emails list
 #   the short log summary of the changes since the last annotated tag.
 # hooks.replyto
-#   If set, replies are requested to be directed to this eMail address.
+#   If set, replies are requested to be directed to this eMail address(es).
 # hooks.envelopesender
 #   If set then the -f option is passed to sendmail to allow the envelope
-#   sender address to be set.  This is also used as Header From.
+#   sender to be set (one address only). This is also used as From header.
 # hooks.emailprefix
 #   If set, e.g. to '[SCM] ', all eMails have their subjects prefixed
 #   with this string to aid filtering.
@@ -120,7 +122,7 @@
 nl='
 '
 unset LANGUAGE LC_ALL
-export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=en_US.UTF-8 \
+export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
     LC_IDENTIFICATION=C LC_MEASUREMENT=C LC_MESSAGES=C \
     LC_MONETARY=C LC_NAME=C LC_NUMERIC=C LC_PAPER=C \
     LC_TELEPHONE=C LC_TIME=C
