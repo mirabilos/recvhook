@@ -2,13 +2,13 @@
 # DP: (note that master has no delta against standalone)
 
 diff --git a/post-receive-email b/post-receive-email
-index 38f6cac..3c15ec5 100755
+index abde17e..0278576 100755
 --- a/post-receive-email
 +++ b/post-receive-email
-@@ -6,6 +6,11 @@
+@@ -8,6 +8,11 @@
  #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
  # Copyright © 2016
- #	martin f krafft (madduck), Thorsten Glaser (mirabilos)
+ #	martin f krafft (madduck)
 +# Part of FusionForge (in particular Evolvis).
 +#
 +# This script can only be used in EvolvisForge configured git
@@ -17,7 +17,7 @@ index 38f6cac..3c15ec5 100755
  #
  # Copyright (c) 2007 Andy Parkins
  #
-@@ -62,23 +67,26 @@
+@@ -64,23 +69,26 @@
  # Config
  # ------
  # hooks.mailinglist
@@ -48,7 +48,7 @@ index 38f6cac..3c15ec5 100755
  # hooks.showrev
  #   The shell command used to format each revision in the email, with
  #   "%s" replaced with the commit id.  Defaults to "git rev-list -1
-@@ -127,6 +135,44 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
+@@ -129,6 +137,44 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
      LC_MONETARY=C LC_NAME=C LC_NUMERIC=C LC_PAPER=C \
      LC_TELEPHONE=C LC_TIME=C
  
@@ -93,7 +93,7 @@ index 38f6cac..3c15ec5 100755
  # ---------------------------- Functions
  
  #
-@@ -359,6 +405,7 @@ generate_email_footer()
+@@ -369,6 +415,7 @@ generate_email_footer()
  	hooks/post-receive
  	--${SPACE}
  	$projectdesc
@@ -101,7 +101,7 @@ index 38f6cac..3c15ec5 100755
  	EOF
  }
  
-@@ -851,8 +898,10 @@ then
+@@ -861,8 +908,10 @@ then
  fi
  
  recipients=$(git config hooks.mailinglist)
@@ -112,7 +112,7 @@ index 38f6cac..3c15ec5 100755
  emailprefix=$(git config hooks.emailprefix)
  custom_showrev=$(git config hooks.showrev)
  maxlines=$(git config hooks.emailmaxlines)
-@@ -860,8 +909,9 @@ diffopts=$(git config hooks.diffopts)
+@@ -870,8 +919,9 @@ diffopts=$(git config hooks.diffopts)
  : "${diffopts:="-p --stat --summary --find-copies-harder"}"
  kgbconffile=$(git config hooks.kgbconffile)
  replyto=$(git config hooks.replyto)
