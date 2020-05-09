@@ -395,7 +395,7 @@ generate_create_branch_email()
 	    git rev-list --parents --topo-order --reverse --stdin $newrev | \
 	    head -n 1 |&
 	read -p commit parent otherparents
-	git -c core.quotePath=false diff-tree $diffopts \
+	git diff-tree $diffopts \
 	    "${parent:-$(:|git hash-object -t tree --stdin)}" "$newrev"
 }
 
@@ -574,7 +574,7 @@ generate_update_branch_email()
 	# non-fast-forward updates.
 	echo ""
 	echo "Summary of changes:"
-	git -c core.quotePath=false diff-tree $diffopts $oldrev..$newrev
+	git diff-tree $diffopts $oldrev..$newrev
 }
 
 #
