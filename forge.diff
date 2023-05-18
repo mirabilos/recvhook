@@ -2,10 +2,19 @@
 # DP: (note that master has no delta against standalone)
 
 diff --git a/post-receive-email b/post-receive-email
-index abde17e..0278576 100755
+index abde17e..55b39fe 100755
 --- a/post-receive-email
 +++ b/post-receive-email
-@@ -8,6 +8,11 @@
+@@ -1,13 +1,18 @@
+ #!/bin/mksh
+ #
+-# Copyright © 2016, 2020
++# Copyright © 2016, 2020, 2023
+ #	mirabilos <m@mirbsd.org>
+ # Copyright © 2013
+ #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
+-# Copyright © 2011, 2012, 2013, 2014, 2015, 2018, 2019
++# Copyright © 2011, 2012, 2013, 2014, 2015, 2018, 2019, 2022
  #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
  # Copyright © 2016
  #	martin f krafft (madduck)
@@ -48,21 +57,30 @@ index abde17e..0278576 100755
  # hooks.showrev
  #   The shell command used to format each revision in the email, with
  #   "%s" replaced with the commit id.  Defaults to "git rev-list -1
-@@ -129,6 +137,44 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
+@@ -129,6 +137,53 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
      LC_MONETARY=C LC_NAME=C LC_NUMERIC=C LC_PAPER=C \
      LC_TELEPHONE=C LC_TIME=C
  
 +# ---------------------------- Forge Integration
 +
 +# get configuration values
-+keys=domain_name:lists_host:sys_name
++keys=:
++for key in domain_name lists_host sys_name use_mail; do
++	eval $key=
++	keys=$keys$key:
++done
 +while IFS= read -r line; do
 +	[[ $line != *' '* || $line = '#'* ]] && continue
 +	key=${line%% *}
 +	value=${line#* }
-+	[[ :$keys: = *:$key:* ]] || continue
++	[[ $keys = *:"$key":* ]] || continue
 +	eval $key=\$value
 +done </etc/gforge/shell.inc
++
++if [[ $use_mail = false ]]; then
++	print -ru2 "I: forge does not use mailing lists"
++	exit 0
++fi
 +
 +# find out where we are
 +whereami() {
@@ -93,7 +111,7 @@ index abde17e..0278576 100755
  # ---------------------------- Functions
  
  #
-@@ -369,6 +415,7 @@ generate_email_footer()
+@@ -369,6 +424,7 @@ generate_email_footer()
  	hooks/post-receive
  	--${SPACE}
  	$projectdesc
@@ -101,7 +119,7 @@ index abde17e..0278576 100755
  	EOF
  }
  
-@@ -861,8 +908,10 @@ then
+@@ -861,8 +917,10 @@ then
  fi
  
  recipients=$(git config hooks.mailinglist)
@@ -112,7 +130,7 @@ index abde17e..0278576 100755
  emailprefix=$(git config hooks.emailprefix)
  custom_showrev=$(git config hooks.showrev)
  maxlines=$(git config hooks.emailmaxlines)
-@@ -870,8 +919,9 @@ diffopts=$(git config hooks.diffopts)
+@@ -870,8 +928,9 @@ diffopts=$(git config hooks.diffopts)
  : "${diffopts:="-p --stat --summary --find-copies-harder"}"
  kgbconffile=$(git config hooks.kgbconffile)
  replyto=$(git config hooks.replyto)

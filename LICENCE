@@ -2,12 +2,14 @@ The post-receive-email script is derived from the one
 shipping with the git software, and thus comes under
 the following licence:
 
+# Copyright © 2016, 2020
+#	mirabilos <m@mirbsd.org>
 # Copyright © 2013
 #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
 # Copyright © 2011, 2012, 2013, 2014, 2015, 2018, 2019
 #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 # Copyright © 2016
-#	martin f krafft (madduck), Thorsten Glaser (mirabilos)
+#	martin f krafft (madduck)
 #
 # Copyright (c) 2007 Andy Parkins
 #
