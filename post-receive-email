@@ -2,7 +2,7 @@
 #
 # Copyright © 2013
 #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
-# Copyright © 2011, 2012, 2013, 2014, 2015, 2018, 2019
+# Copyright © 2011, 2012, 2013, 2014, 2015, 2018, 2019, 2022
 #	Thorsten “mirabilos” Glaser <t.glaser@tarent.de>
 # Copyright © 2016
 #	martin f krafft (madduck), Thorsten Glaser (mirabilos)
@@ -138,7 +138,7 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
 # ---------------------------- Forge Integration
 
 # get configuration values
-keys=domain_name:lists_host:sys_name
+keys=domain_name:lists_host:sys_name:use_mail
 while IFS= read -r line; do
 	[[ $line != *' '* || $line = '#'* ]] && continue
 	key=${line%% *}
@@ -146,6 +146,11 @@ while IFS= read -r line; do
 	[[ :$keys: = *:$key:* ]] || continue
 	eval $key=\$value
 done </etc/gforge/shell.inc
+
+if [[ $use_mail = false ]]; then
+	print -ru2 "I: forge does not use mailing lists"
+	exit 0
+fi
 
 # find out where we are
 whereami() {
