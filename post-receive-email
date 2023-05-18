@@ -1,6 +1,6 @@
 #!/bin/mksh
 #
-# Copyright © 2016, 2020
+# Copyright © 2016, 2020, 2023
 #	mirabilos <m@mirbsd.org>
 # Copyright © 2013
 #	Thorsten “mirabilos” Glaser <thorsten.glaser@teckids.org>
@@ -140,12 +140,16 @@ export LANG=C LC_ADDRESS=C LC_COLLATE=C LC_CTYPE=C.UTF-8 \
 # ---------------------------- Forge Integration
 
 # get configuration values
-keys=domain_name:lists_host:sys_name:use_mail
+keys=:
+for key in domain_name lists_host sys_name use_mail; do
+	eval $key=
+	keys=$keys$key:
+done
 while IFS= read -r line; do
 	[[ $line != *' '* || $line = '#'* ]] && continue
 	key=${line%% *}
 	value=${line#* }
-	[[ :$keys: = *:$key:* ]] || continue
+	[[ $keys = *:"$key":* ]] || continue
 	eval $key=\$value
 done </etc/gforge/shell.inc
 
